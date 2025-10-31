@@ -1,8 +1,6 @@
 # 🤖 MLOps + DevOps Convergence Demo  
 **By [Monika](https://www.linkedin.com/in/monika-rangari-13b280149/)** — DevOps, Cloud & AI Professional  
 ---
-# 🤖 MLOps + DevOps Convergence Demo
-
 End-to-end **AI + DevOps pipeline** using **GitLab CI/CD, Docker, Helm, and FluxCD** — trains an ML model, packages it as a FastAPI service, deploys to **Kubernetes** via **GitOps**, and exposes Prometheus metrics.
 ---
 ## 🧩 Tech Stack
