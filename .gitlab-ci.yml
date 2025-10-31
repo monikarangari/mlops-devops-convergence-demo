@@ -1,0 +1,64 @@
+stages: [lint, test, train, build, deploy]
+
+variables:
+  IMAGE: "$CI_REGISTRY_IMAGE/model-svc"
+  TAG: "$CI_COMMIT_SHORT_SHA"
+  MLFLOW_TRACKING_URI: "file:./mlruns"
+  MLFLOW_EXPERIMENT: "iris-demo"
+  MODEL_OUT: "models/model.joblib"
+
+before_script:
+  - python --version
+
+lint:
+  image: python:3.11-slim
+  stage: lint
+  script:
+    - pip install ruff
+    - ruff check src
+  only: [merge_requests, branches]
+
+test:
+  image: python:3.11-slim
+  stage: test
+  script:
+    - pip install -r requirements.txt pytest
+    - pytest -q
+  only: [merge_requests, branches]
+
+train:
+  image: python:3.11-slim
+  stage: train
+  script:
+    - pip install -r requirements.txt
+    - python src/train.py
+    - test -f models/model.joblib
+  artifacts:
+    paths:
+      - models/
+    expire_in: 1 week
+  only: [main, tags]
+
+build:
+  image: gcr.io/kaniko-project/executor:latest
+  stage: build
+  dependencies: [train]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --destination $IMAGE:$TAG --destination $IMAGE:latest
+  only: [main, tags]
+
+deploy:
+  image: alpine/git
+  stage: deploy
+  script:
+    # GitOps: bump image tag in the GitOps repo (separate repo recommended)
+    - git clone https://oauth2:${GITOPS_TOKEN}@$GITOPS_REPO_URL gitops
+    - cd gitops/helm/model-svc
+    - yq -i ".image.repository = \"$IMAGE\"" values.yaml
+    - yq -i ".image.tag = \"$TAG\"" values.yaml
+    - git config user.email "ci@example.com"
+    - git config user.name "gitlab-ci"
+    - git commit -am "chore: bump model-svc to $TAG"
+    - git push origin main
+  only: [main, tags]
