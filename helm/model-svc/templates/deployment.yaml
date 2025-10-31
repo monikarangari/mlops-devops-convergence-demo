@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "model-svc.fullname" . }}
+spec:
+  replicas: {{ .Values.deployment.stableReplicas | default 2 }}
+  selector:
+    matchLabels:
+      app: {{ include "model-svc.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "model-svc.name" . }}
+    spec:
+      containers:
+        - name: model-svc
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+          env:
+{{- range .Values.env }}
+            - name: {{ .name }}
+              value: "{{ .value }}"
+{{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+# Canary deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "model-svc.fullname" . }}-canary
+spec:
+  replicas: {{ .Values.deployment.canaryReplicas | default 0 }}
+  selector:
+    matchLabels:
+      app: {{ include "model-svc.name" . }}-canary
+  template:
+    metadata:
+      labels:
+        app: {{ include "model-svc.name" . }}-canary
+    spec:
+      containers:
+        - name: model-svc
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "model-svc.fullname" . }}
+spec:
+  selector:
+    app: {{ include "model-svc.name" . }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}

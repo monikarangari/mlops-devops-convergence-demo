@@ -1,0 +1,24 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: model-gitops
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://github.com/your-org/mlops-gitops.git
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: model-svc
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  path: ./helm/model-svc
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: model-gitops
+  targetNamespace: model-infer
